@@ -4,6 +4,7 @@ const axios = require('axios');
 const express = require('express');
 const { InteractionType, InteractionResponseType, verifyKeyMiddleware } = require('discord-interactions');
 require('dotenv').config();
+app.post('/interactions', verifyKeyMiddleware(PUBLIC_KEY), async (req, res) => {
 
 const client = new Client({
   intents: [
