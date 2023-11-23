@@ -1,9 +1,9 @@
 const { Client, GatewayIntentBits } = require('discord.js');
+const ytdl = require('ytdl-core');
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
   ],
@@ -20,41 +20,32 @@ client.on('messageCreate', async (message) => {
 
   const [command, ...args] = message.content.slice(prefix.length).split(' ');
 
-  // Verification system
-  if (command === 'verify') {
-    // Implement verification logic here
-    // For example, you might assign a "Verified" role to the user
-    const verifiedRole = message.guild.roles.cache.find((role) => role.name === 'Verified');
-    if (verifiedRole) {
-      message.member.roles.add(verifiedRole);
-      message.reply('You have been verified!');
-    } else {
-      message.reply('Verification role not found. Contact the server administrator.');
-    }
+  // Help command
+  if (command === 'help') {
+    const helpEmbed = {
+      color: 0x0099ff,
+      title: 'Bot Commands',
+      fields: [
+        { name: '!help', value: 'Displays a list of available commands.' },
+        { name: '!commands', value: 'Lists all available commands.' },
+        { name: '!purge [count]', value: 'Deletes a specified number of messages (default: 100).' },
+        // Add information about other commands...
+      ],
+    };
+
+    message.channel.send({ embeds: [helpEmbed] });
   }
 
-  // Chat logs channel creation command
-  if (command === 'createchatlogschannel' && message.member.permissions.has('MANAGE_CHANNELS')) {
-    const guild = message.guild;
-    const channelName = 'chat-logs';
+  // Commands command
+  if (command === 'commands') {
+    const commandsList = [
+      '!help - Displays a list of available commands.',
+      '!commands - Lists all available commands.',
+      '!purge [count] - Deletes a specified number of messages (default: 100).',
+      // Add information about other commands...
+    ];
 
-    // Check if the channel already exists
-    const existingChannel = guild.channels.cache.find((channel) => channel.name === channelName);
-    if (existingChannel) {
-      message.reply('Chat logs channel already exists.');
-    } else {
-      // Create the channel
-      try {
-        const createdChannel = await guild.channels.create(channelName, {
-          type: 'text',
-          topic: 'Chat logs will be recorded here.',
-        });
-        message.reply(`Chat logs channel created: ${createdChannel}`);
-      } catch (error) {
-        console.error('Error creating chat logs channel:', error);
-        message.reply('An error occurred while creating the chat logs channel.');
-      }
-    }
+    message.channel.send(`**Available Commands:**\n${commandsList.join('\n')}`);
   }
 
   // Moderation commands
@@ -128,6 +119,113 @@ client.on('messageCreate', async (message) => {
     message.channel.send('Dashboard functionality coming soon!');
   }
 
-  // Add more commands as needed...
+  // Music recommendation command
+  if (command === 'musicrec') {
+    const genre = args.join(' ').toLowerCase();
+    const genreMap = {
+      'pop': ['pop music', 'pop songs'],
+      'rock': ['rock music', 'classic rock', 'alternative rock'],
+      'hiphop': ['hip hop music', 'rap music'],
+      'classical': ['classical music', 'symphony'],
+      'edm': ['electronic dance music', 'house music'],
+      'jazz': ['jazz music', 'smooth jazz'],
+      'country': ['country music', 'bluegrass'],
+      'metal': ['metal music', 'heavy metal'],
+      'rnb': ['rhythm and blues music', 'soul music'],
+      'indie': ['indie music', 'indie rock'],
+      'reggae': ['reggae music', 'dancehall'],
+      'blues': ['blues music', 'electric blues'],
+      'punk': ['punk music', 'pop punk'],
+      'folk': ['folk music', 'folk rock'],
+      'latin': ['latin music', 'salsa'],
+      // Add more genres and their corresponding search queries including sub-genres
+    };
+
+    if (genre in genreMap) {
+      const subGenres = genreMap[genre];
+      const randomSubGenre = getRandomElement(subGenres);
+      const searchQuery = randomSubGenre || genreMap[genre][0]; // Use the first genre if no sub-genres
+      const videoUrl = await getYouTubeUrl(searchQuery);
+
+      if (videoUrl) {
+        message.reply(`Here's a ${genre} recommendation (${randomSubGenre || 'main genre'}): ${videoUrl}`);
+      } else {
+        message.reply(`Sorry, I couldn't find a recommendation for ${genre}.`);
+      }
+    } else {
+      const supportedGenres = Object.keys(genreMap).join(', ');
+      message.reply(`Invalid genre. Supported genres: ${supportedGenres}`);
+    }
+  }
+
+  // ... (other commands)
 
 });
+
+client.on('messageCreate', async (message) => {
+  if (message.author.bot || !message.content.startsWith(prefix)) return;
+
+  const [command, ...args] = message.content.slice(prefix.length).split(' ');
+
+  // Verification system
+  if (command === 'verify') {
+    // Implement verification logic here
+    // For example, you might assign a "Verified" role to the user
+    const verifiedRole = message.guild.roles.cache.find((role) => role.name === 'Verified');
+    if (verifiedRole) {
+      message.member.roles.add(verifiedRole);
+      message.reply('You have been verified!');
+    } else {
+      message.reply('Verification role not found. Contact the server administrator.');
+    }
+  }
+
+  // Chat logs channel creation command
+  if (command === 'createchatlogschannel' && message.member.permissions.has('MANAGE_CHANNELS')) {
+    const guild = message.guild;
+    const channelName = 'chat-logs';
+
+    // Check if the channel already exists
+    const existingChannel = guild.channels.cache.find((channel) => channel.name === channelName);
+    if (existingChannel) {
+      message.reply('Chat logs channel already exists.');
+    } else {
+      // Create the channel
+      try {
+        const createdChannel = await guild.channels.create(channelName, {
+          type: 'text',
+          topic: 'Chat logs will be recorded here.',
+        });
+        message.reply(`Chat logs channel created: ${createdChannel}`);
+      } catch (error) {
+        console.error('Error creating chat logs channel:', error);
+        message.reply('An error occurred while creating the chat logs channel.');
+      }
+    }
+  }
+
+  // ... (other commands)
+
+});
+
+// ... (remaining code)
+
+client.login(process.env.DISCORD_TOKEN);
+
+async function getYouTubeUrl(searchQuery) {
+  try {
+    const searchResults = await ytdl.getBasicInfo(`ytsearch:${searchQuery}`);
+    if (searchResults && searchResults.videoDetails) {
+      return `https://www.youtube.com/watch?v=${searchResults.videoDetails.videoId}`;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching YouTube URL:', error);
+    return null;
+  }
+}
+
+function getRandomElement(array) {
+  return array[Math.floor(Math.random() * array.length)];
+}
+
