@@ -1,39 +1,42 @@
-// const { clientId, guildId, token, publicKey } = require('./config.json');
-require('dotenv').config()
-const APPLICATION_ID = process.env.APPLICATION_ID 
-const TOKEN = process.env.TOKEN 
-const PUBLIC_KEY = process.env.PUBLIC_KEY || 'not set'
-const GUILD_ID = process.env.GUILD_ID 
-
-
-const axios = require('axios')
+const { Client, GatewayIntentBits } = require('discord.js');
+const ytdl = require('ytdl-core');
+const axios = require('axios');
 const express = require('express');
 const { InteractionType, InteractionResponseType, verifyKeyMiddleware } = require('discord-interactions');
+require('dotenv').config();
 
-
-const app = express();
-// app.use(bodyParser.json());
-
-const discord_api = axios.create({
-  baseURL: 'https://discord.com/api/',
-  timeout: 3000,
-  headers: {
-	"Access-Control-Allow-Origin": "*",
-	"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE",
-	"Access-Control-Allow-Headers": "Authorization",
-	"Authorization": `Bot ${TOKEN}`
-  }
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
+  ],
 });
 
+const prefix = '!';
 
+client.once('ready', () => {
+  console.log(`Logged in as ${client.user.tag}!`);
+});
 
+client.on('messageCreate', async (message) => {
+  // ... (your existing message handling code)
+});
 
-app.post('/interactions', verifyKeyMiddleware(PUBLIC_KEY), async (req, res) => {
+// ... (your other event handlers)
+
+const app = express();
+
+app.use(express.json());
+
+app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async (req, res) => {
   const interaction = req.body;
 
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
-    console.log(interaction.data.name)
-    if(interaction.data.name == 'yo'){
+    console.log(interaction.data.name);
+
+    if (interaction.data.name == 'yo') {
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
@@ -42,70 +45,64 @@ app.post('/interactions', verifyKeyMiddleware(PUBLIC_KEY), async (req, res) => {
       });
     }
 
-    if(interaction.data.name == 'dm'){
-      // https://discord.com/developers/docs/resources/user#create-dm
-      let c = (await discord_api.post(`/users/@me/channels`,{
-        recipient_id: interaction.member.user.id
-      })).data
-      try{
-        // https://discord.com/developers/docs/resources/channel#create-message
-        let res = await discord_api.post(`/channels/${c.id}/messages`,{
-          content:'Yo! I got your slash command. I am not able to respond to DMs just slash commands.',
-        })
-        console.log(res.data)
-      }catch(e){
-        console.log(e)
+    if (interaction.data.name == 'dm') {
+      let c = (await axios.post(`https://discord.com/api/users/@me/channels`, {
+        recipient_id: interaction.member.user.id,
+      })).data;
+
+      try {
+        let res = await axios.post(`https://discord.com/api/channels/${c.id}/messages`, {
+          content: 'Yo! I got your slash command. I am not able to respond to DMs, just slash commands.',
+        });
+        console.log(res.data);
+      } catch (e) {
+        console.log(e);
       }
 
       return res.send({
-        // https://discord.com/developers/docs/interactions/receiving-and-responding#responding-to-an-interaction
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data:{
-          content:'👍'
-        }
+        data: {
+          content: '👍',
+        },
       });
     }
   }
-
 });
 
-
-
-app.get('/register_commands', async (req,res) =>{
-  let slash_commands = [
+app.get('/register_commands', async (req, res) => {
+  let slashCommands = [
     {
-      "name": "yo",
-      "description": "replies with Yo!",
-      "options": []
+      name: 'yo',
+      description: 'replies with Yo!',
+      options: [],
     },
     {
-      "name": "dm",
-      "description": "sends user a DM",
-      "options": []
-    }
-  ]
-  try
-  {
-    // api docs - https://discord.com/developers/docs/interactions/application-commands#create-global-application-command
-    let discord_response = await discord_api.put(
-      `/applications/${APPLICATION_ID}/guilds/${GUILD_ID}/commands`,
-      slash_commands
-    )
-    console.log(discord_response.data)
-    return res.send('commands have been registered')
-  }catch(e){
-    console.error(e.code)
-    console.error(e.response?.data)
-    return res.send(`${e.code} error from discord`)
+      name: 'dm',
+      description: 'sends user a DM',
+      options: [],
+    },
+  ];
+
+  try {
+    let discordResponse = await axios.put(
+      `https://discord.com/api/applications/${process.env.APPLICATION_ID}/guilds/${process.env.GUILD_ID}/commands`,
+      slashCommands
+    );
+    console.log(discordResponse.data);
+    return res.send('Commands have been registered');
+  } catch (e) {
+    console.error(e.code);
+    console.error(e.response?.data);
+    return res.send(`${e.code} error from Discord`);
   }
-})
+});
 
-
-app.get('/', async (req,res) =>{
-  return res.send('Follow documentation ')
-})
-
+app.get('/', async (req, res) => {
+  return res.send('Follow documentation ');
+});
 
 app.listen(8999, () => {
+  console.log('Express app listening on port 8999');
+});
 
-})
+client.login(process.env.DISCORD_TOKEN);
